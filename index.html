@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Terminal Oculta</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: #0d0d0d; color: #e1e1e6; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        
+        .chat-container {
+            width: 100%;
+            max-width: 420px;
+            height: 95vh;
+            background-color: #121214;
+            border: 1px solid #222;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            position: relative;
+        }
+
+        /* Cabecera */
+        .chat-header {
+            padding: 12px 16px;
+            background-color: #16161a;
+            border-bottom: 1px solid #26262c;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .avatar-container {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 1px solid #444;
+            background: #222;
+        }
+        .avatar-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .chat-meta {
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-title {
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #f1f1f6;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .verified-badge { font-size: 0.75rem; color: #ff4757; }
+        .chat-handle { font-size: 0.75rem; color: #888; }
+
+        /* Área de mensajes */
+        .chat-messages {
+            flex: 1;
+            padding: 20px 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background-color: #121214;
+        }
+
+        .message-row {
+            display: flex;
+            align-items: flex-start; 
+            gap: 8px;
+            max-width: 88%;
+        }
+
+        .message-row.bot { align-self: flex-start; }
+        .message-row.user { align-self: flex-end; flex-direction: row-reverse; }
+
+        .mini-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: #2b2b36;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #3b3b4f;
+            margin-top: 2px;
+        }
+        .mini-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .user-icon-svg { width: 16px; height: 16px; fill: #aaa; }
+
+        .message-content { display: flex; flex-direction: column; gap: 3px; }
+        .message-bubble {
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            border: 1px solid #26262c;
+        }
+        .message-row.bot .message-bubble { background-color: #1b1b1f; color: #d1d1d6; border-top-left-radius: 2px; }
+        .message-row.user .message-bubble { background-color: #2b2b36; color: #fff; border-color: #3b3b4f; border-top-right-radius: 2px; }
+
+        .msg-time { font-size: 0.65rem; color: #666; padding: 0 2px; }
+        .message-row.user .msg-time { text-align: right; }
+
+        /* Zona de entrada */
+        .chat-input-area {
+            padding: 12px 16px;
+            background-color: #16161a;
+            border-top: 1px solid #26262c;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .chat-input-area input {
+            flex: 1;
+            background-color: #0d0d0d;
+            border: 1px solid #2a2a32;
+            border-radius: 20px;
+            padding: 10px 16px;
+            color: #fff;
+            font-size: 0.9rem;
+            outline: none;
+        }
+        .send-btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* Pantallas superpuestas (Hacking & Laberinto) */
+        .overlay-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #121214;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            padding: 20px;
+        }
+
+        /* Barra de Hacking */
+        .hacking-container {
+            width: 80%;
+            background: #1b1b1f;
+            border: 1px solid #3b3b4f;
+            border-radius: 8px;
+            padding: 4px;
+            margin-top: 15px;
+        }
+        .hacking-bar {
+            height: 18px;
+            background: #4ade80;
+            width: 0%;
+            border-radius: 4px;
+            transition: width 0.1s linear;
+        }
+
+        /* Laberinto */
+        #mazeCanvas {
+            background: #0d0d0d;
+            border: 2px solid #3b3b4f;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        .maze-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 50px);
+            gap: 8px;
+            margin-top: 15px;
+        }
+        .maze-btn {
+            background: #2b2b36;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 6px;
+            height: 45px;
+            font-size: 1.1rem;
+            cursor: pointer;
+        }
+        .maze-btn:active { background: #3b82f6; }
+    </style>
+</head>
+<body>
+
+<div class="chat-container" id="mainContainer">
+    <!-- Cabecera -->
+    <div class="chat-header">
+        <div class="avatar-container"><img id="charAvatar" src="" alt="Avatar"></div>
+        <div class="chat-meta">
+            <div class="chat-title"><span id="charName">Cargando...</span><span class="verified-badge">🔒</span></div>
+            <div class="chat-handle" id="charHandle">@desconocida</div>
+        </div>
+    </div>
+
+    <!-- Mensajes -->
+    <div class="chat-messages" id="chatMessages">
+        <div class="message-row bot">
+            <div class="mini-avatar"><img id="botMiniInitial" src="" alt="Bot"></div>
+            <div class="message-content">
+                <div class="message-bubble" id="initialMessageBubble">
+                    *La pantalla parpadea tenuemente mientras ajustas la frecuencia de conexión. Ella te mira de reojo, ocultándose en la penumbra.*<br><br>
+                    — Vaya, al fin lograste conectar... Tengo algo importante para ti, pero está protegido bajo un cifrado.<br><br>
+                    🔒 <b>Mensaje Cifrado:</b> <span id="cipherDisplay" style="color: #ff5252;">KHOOR</span><br><br>
+                    <span style="font-size: 0.8rem; color: #aaa;">(Usa <b>/desencriptar [texto] [saltos]</b>, <b>/msg [tu respuesta]</b> o <b>/pista</b>).</span>
+                </div>
+                <div class="msg-time" id="currentTimeBot">16:11</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input -->
+    <div class="chat-input-area" id="inputAreaContainer">
+        <input type="text" id="userInput" placeholder="Escribe un mensaje o comando..." onkeypress="handleKeyPress(event)">
+        <button class="send-btn" onclick="sendMessage()">➤</button>
+    </div>
+
+    <!-- Pantalla de Carga / Hackeo -->
+    <div class="overlay-screen" id="hackingScreen">
+        <h3 style="color: #4ade80; font-family: monospace; font-size: 1.2rem;">⚡ HACKING IN PROGRESS...</h3>
+        <div class="hacking-container">
+            <div class="hacking-bar" id="hackingBar"></div>
+        </div>
+        <p id="hackingText" style="margin-top: 10px; font-size: 0.85rem; color: #aaa; font-family: monospace;">Bypassing firewall (0%)...</p>
+    </div>
+
+    <!-- Pantalla de Laberinto -->
+    <div class="overlay-screen" id="mazeScreen">
+        <h3 style="color: #60a5fa; margin-bottom: 10px; font-size: 1rem;">🧩 Rompe el cortafuegos físico</h3>
+        <p style="font-size: 0.75rem; color: #888; margin-bottom: 10px; text-align: center;">Guía el nodo verde 🟩 hasta el puerto rojo 🟥</p>
+        <canvas id="mazeCanvas" width="240" height="240"></canvas>
+        <div class="maze-controls">
+            <div></div>
+            <button class="maze-btn" onclick="movePlayer(0, -1)">▲</button>
+            <div></div>
+            <button class="maze-btn" onclick="movePlayer(-1, 0)">◀</button>
+            <button class="maze-btn" onclick="movePlayer(0, 1)">▼</button>
+            <button class="maze-btn" onclick="movePlayer(1, 0)">▶</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const identidadesOcultas = [
+        { nombre: "miku nakano", handle: "@L_lawliet", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" },
+        { nombre: "E.S.N.V.", handle: "@sombras_silenciosas", avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80" },
+        { nombre: "Kanon_R", handle: "@signal_lost_404", avatar: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&auto=format&fit=crop&q=80" },
+        { nombre: "Vanesa.sys", handle: "@oculta_en_red", avatar: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=150&auto=format&fit=crop&q=80" },
+        { nombre: "Akari_09", handle: "@neon_ghost", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80" }
+    ];
+
+    const bancosNiveles = [
+        [
+            { cifrado: "KHOOR", solucion: "HELLO", salto: 3, pista: '— Cuenta los lados que encierran a una figura geométrica perfecta de esquinas agudas.' },
+            { cifrado: "WKLV", solucion: "THIS", salto: 3, pista: '— Piensa en cuántas dimensiones bastan para trazar un volumen básico.' }
+        ],
+        [
+            { cifrado: "FRGH", solucion: "CODE", salto: 3, pista: '— Es lo que estás escribiendo línea a línea en este instante.' },
+            { cifrado: "ZRUOG", solucion: "WORLD", salto: 3, pista: '— Acompaña tradicionalmente al primer saludo de la programación.' }
+        ],
+        [
+            { cifrado: "UHYR", solucion: "USER", salto: 13, pista: '— La persona al otro lado de la pantalla.' },
+            { cifrado: "QGH", solucion: "END", salto: 3, pista: '— El punto final de una secuencia lógica.' }
+        ]
+    ];
+
+    let currentPersonaIndex = 0;
+    let bancoMensajes = [];
+    let nivelActual = 0;
+    let avatarActualURL = "";
+
+    function iniciarJuego() {
+        // Seleccionar personaje aleatorio o secuencial infinito
+        let elegido = identidadesOcultas[currentPersonaIndex % identidadesOcultas.length];
+        bancoMensajes = bancosNiveles[Math.floor(Math.random() * bancosNiveles.length)];
+        nivelActual = 0;
+
+        document.getElementById('charName').innerText = elegido.nombre;
+        document.getElementById('charHandle').innerText = elegido.handle;
+        document.getElementById('charAvatar').src = elegido.avatar;
+        document.getElementById('botMiniInitial').src = elegido.avatar;
+        avatarActualURL = elegido.avatar;
+
+        // Limpiar chat y dejar solo el primer mensaje
+        let chatMessages = document.getElementById('chatMessages');
+        chatMessages.innerHTML = `
+            <div class="message-row bot">
+                <div class="mini-avatar"><img src="${elegido.avatar}" alt="Bot"></div>
+                <div class="message-content">
+                    <div class="message-bubble">
+                        *Estableciendo nueva frecuencia con ${elegido.nombre}...*<br><br>
+                        — Vaya, lograste abrir otra brecha. Veamos si superas este nodo cifrado.<br><br>
+                        🔒 <b>Mensaje Cifrado:</b> <span id="cipherDisplay" style="color: #ff5252;">${bancoMensajes[nivelActual].cifrado}</span><br><br>
+                        <span style="font-size: 0.8rem; color: #aaa;">(Usa <b>/desencriptar [texto] [saltos]</b>, <b>/msg [tu respuesta]</b> o <b>/pista</b>).</span>
+                    </div>
+                    <div class="msg-time" id="currentTimeBot">16:11</div>
+                </div>
+            </div>`;
+    }
+
+    window.onload = iniciarJuego;
+
+    function caesarCipher(str, shift) {
+        return str.split('').map(char => {
+            let code = char.charCodeAt(0);
+            if (code >= 65 && code <= 90) return String.fromCharCode(((code - 65 - shift + 26) % 26) + 65);
+            if (code >= 97 && code <= 122) return String.fromCharCode(((code - 97 - shift + 26) % 26) + 97);
+            return char;
+        }).join('');
+    }
+
+    function appendMessage(htmlContent, isUser = false) {
+        let chatMessages = document.getElementById('chatMessages');
+        let row = document.createElement('div');
+        row.className = `message-row ${isUser ? 'user' : 'bot'}`;
+
+        let miniAvatar = document.createElement('div');
+        miniAvatar.className = 'mini-avatar';
+        if (isUser) {
+            miniAvatar.innerHTML = `<svg class="user-icon-svg" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>`;
+        } else {
+            let img = document.createElement('img');
+            img.src = avatarActualURL;
+            miniAvatar.appendChild(img);
+        }
+
+        let content = document.createElement('div');
+        content.className = 'message-content';
+        let bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+        bubble.innerHTML = htmlContent;
+
+        let now = new Date();
+        let timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        let timeDiv = document.createElement('div');
+        timeDiv.className = 'msg-time';
+        timeDiv.innerText = timeStr;
+
+        content.appendChild(bubble);
+        content.appendChild(timeDiv);
+        row.appendChild(miniAvatar);
+        row.appendChild(content);
+        chatMessages.appendChild(row);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function triggerHackingSequence() {
+        let screen = document.getElementById('hackingScreen');
+        let bar = document.getElementById('hackingBar');
+        let text = document.getElementById('hackingText');
+        screen.style.display = 'flex';
+        
+        let width = 0;
+        let interval = setInterval(() => {
+            if (width >= 100) {
+                clearInterval(interval);
+                screen.style.display = 'none';
+                iniciarLaberinto(); // Pasar al laberinto tras la barra
+            } else {
+                width += 4;
+                bar.style.width = width + '%';
+                text.innerText = `Bypassing firewall (${width}%)...`;
+            }
+        }, 405);
+    }
+
+    // --- LÓGICA DEL LABERINTO ---
+    const mazeGridSize = 8;
+    const cellSize = 30; // 8 * 30 = 240px
+    let mazeMap = [
+        [0,0,1,0,0,0,1,0],
+        [1,0,1,0,1,0,1,0],
+        [0,0,0,0,1,0,0,0],
+        [0,1,1,1,1,1,1,0],
+        [0,0,0,0,0,0,1,0],
+        [1,1,1,1,1,0,1,0],
+        [0,0,0,0,1,0,0,0],
+        [0,1,1,0,0,0,1,0]
+    ];
+    let playerPos = { x: 0, y: 0 };
+    let goalPos = { x: 7, y: 7 };
+
+    function iniciarLaberinto() {
+        document.getElementById('mazeScreen').style.display = 'flex';
+        playerPos = { x: 0, y: 0 };
+        drawMaze();
+    }
+
+    function drawMaze() {
+        let canvas = document.getElementById('mazeCanvas');
+        let ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let r = 0; r < mazeGridSize; r++) {
+            for (let c = 0; c < mazeGridSize; c++) {
+                if (mazeMap[r][c] === 1) {
+                    ctx.fillStyle = '#1b1b1f';
+                    ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+                    ctx.strokeStyle = '#2e2e38';
+                    ctx.strokeRect(c * cellSize, r * cellSize, cellSize, cellSize);
+                } else {
+                    ctx.fillStyle = '#121214';
+                    ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+                }
+            }
+        }
+
+        // Meta (Rojo)
+        ctx.fillStyle = '#ff4757';
+        ctx.fillRect(goalPos.x * cellSize + 6, goalPos.y * cellSize + 6, cellSize - 12, cellSize - 12);
+
+        // Jugador (Verde)
+        ctx.fillStyle = '#4ade80';
+        ctx.beginPath();
+        ctx.arc(playerPos.x * cellSize + cellSize/2, playerPos.y * cellSize + cellSize/2, cellSize/3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function movePlayer(dx, dy) {
+        let newX = playerPos.x + dx;
+        let newY = playerPos.y + dy;
+
+        if (newX >= 0 && newX < mazeGridSize && newY >= 0 && newY < mazeGridSize) {
+            if (mazeMap[newY][newX] === 0) {
+                playerPos.x = newX;
+                playerPos.y = newY;
+                drawMaze();
+
+                // Comprobar si llegó a la meta
+                if (playerPos.x === goalPos.x && playerPos.y === goalPos.y) {
+                    setTimeout(() => {
+                        document.getElementById('mazeScreen').style.display = 'none';
+                        currentPersonaIndex++;
+                        iniciarJuego();
+                        appendMessage(`*¡Cortafuegos destruido con éxito! Has saltado a una nueva terminal segura y un nuevo chat.*`);
+                    }, 300);
+                }
+            }
+        }
+    }
+
+    // Controles por teclado para el laberinto
+    window.addEventListener('keydown', (e) => {
+        if (document.getElementById('mazeScreen').style.display === 'flex') {
+            if (e.key === 'ArrowUp') movePlayer(0, -1);
+            if (e.key === 'ArrowDown') movePlayer(0, 1);
+            if (e.key === 'ArrowLeft') movePlayer(-1, 0);
+            if (e.key === 'ArrowRight') movePlayer(1, 0);
+        }
+    });
+
+    function avanzarNivelOCompletar(currentName) {
+        nivelActual++;
+        if (nivelActual < bancoMensajes.length) {
+            appendMessage(`*${currentName} sonríe sorprendida al leer tu respuesta.*<br><br>— ¡Exacto! Pasemos al siguiente nodo:<br><br>🔒 <b>Nuevo Mensaje:</b> <span style="color: #ff5252;">${bancoMensajes[nivelActual].cifrado}</span>`);
+        } else {
+            appendMessage(`*${currentName} cede ante tu habilidad informática.*<br><br>— Has descifrado todo el bloque. Iniciando secuencia de hackeo físico...`);
+            setTimeout(triggerHackingSequence, 1200);
+        }
+    }
+
+    function sendMessage() {
+        let input = document.getElementById('userInput');
+        let text = input.value.trim();
+        if (!text) return;
+
+        appendMessage(text, true);
+        input.value = '';
+
+        setTimeout(() => {
+            let lower = text.toLowerCase().trim();
+            let currentName = document.getElementById('charName').innerText;
+            let actual = bancoMensajes[nivelActual];
+
+            if (lower.startsWith('/desencriptar')) {
+                let parts = text.trim().split(/\s+/);
+                let targetText = parts[1];
+                let shift = parseInt(parts[2]);
+
+                if (!targetText || isNaN(shift)) {
+                    appendMessage(`⚠️ Formato incorrecto. Usa: <br><code>/desencriptar [texto] [saltos]</code>`);
+                    return;
+                }
+
+                let decoded = caesarCipher(targetText, shift);
+                appendMessage(`⚙️ <b>Resultado del análisis (${shift} saltos):</b><br><code style="color: #4ade80;">${decoded}</code>`);
+
+                if (decoded.toUpperCase() === actual.solucion) {
+                    avanzarNivelOCompletar(currentName);
+                }
+            } 
+            else if (lower.startsWith('/msg')) {
+                let parts = text.trim().split(/\s+/);
+                parts.shift();
+                let userGuess = parts.join(' ').toUpperCase();
+
+                if (!userGuess) {
+                    appendMessage(`⚠️ Debes escribir tu mensaje. Ejemplo: <code>/msg [respuesta]</code>`);
+                    return;
+                }
+
+                if (userGuess === actual.solucion) {
+                    avanzarNivelOCompletar(currentName);
+                } else {
+                    appendMessage(`*${currentName} niega con la cabeza y te mira de reojo.*<br><br>— Ese no era el mensaje oculto. Intenta descifrarlo mejor.`);
+                }
+            } 
+            else if (lower === '/pista') {
+                appendMessage(`💡 <b>Pista descifrada:</b><br>${actual.pista}`);
+            }
+            else {
+                appendMessage(`— Comando no reconocido. Usa <b>/pista</b>, <b>/desencriptar [texto] [saltos]</b> o <b>/msg [respuesta]</b>.`);
+            }
+        }, 400);
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === 'Enter') sendMessage();
+    }
+</script>
+
+</body>
+</html>
